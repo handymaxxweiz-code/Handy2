@@ -534,20 +534,7 @@ function rRepForm(id){
       fg('PREIS (€)','<input class="fi" type="number" id="rpr" value="'+(fd.preis||'')+'" placeholder="0">')+
       fg('ZUGEWIESEN AN','<select class="fi" id="rzu"><option value="">— Niemand —</option>'+AM.map(function(m){return'<option value="'+m.id+'"'+(m.id===(fd.zugewiesen_an||'')?' selected':'')+'>'+h(m.name)+'</option>'}).join('')+'</select>')+
       fg('ERSATZTEILE','<input class="fi" id="rers" value="'+h(fd.ersatzteile||'')+'" placeholder="Display, Akku…">')+
-      fgw('GERÄTECODE (PIN/Passwort)','<input class="fi" id="rcode" value="'+h(fd.gerätecode||'')+'" placeholder="z.B. 1234 · vertraulich">')+
-      '<div class="fg fw" style="margin-top:4px"><label class="fl">MUSTER CODE</label>'+
-        '<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:8px;margin-top:4px">'+
-          '<canvas id="rmuster-canvas" style="width:100%;height:200px;display:block;touch-action:none"></canvas>'+
-        '</div>'+
-        '<button type="button" class="btn-g btn-sm" id="rmuster-clear" style="margin-top:6px">✕ Muster löschen</button>'+
-      '</div>'+
-      '<div class="fg fw" style="margin-top:12px"><label class="fl">UNTERSCHRIFT KUNDE</label>'+
-        '<div style="background:#fff;border-radius:12px;border:1px solid var(--border);padding:8px;margin-top:4px;position:relative">'+
-          '<canvas id="rsig-canvas" style="width:100%;height:130px;display:block;touch-action:none"></canvas>'+
-          '<div style="position:absolute;bottom:8px;right:10px;font-size:10px;color:#ccc">Hier unterschreiben</div>'+
-        '</div>'+
-        '<button type="button" class="btn-g btn-sm" id="rsig-clear" style="margin-top:6px">✕ Unterschrift löschen</button>'+
-      '</div>'+
+      fgw('GERÄTECODE (PIN/Muster/Passwort)','<input class="fi" id="rcode" value="'+h(fd.gerätecode||'')+'" placeholder="z.B. 1234 · wird vertraulich behandelt">')+
       fgw('NOTIZEN','<textarea class="fi" id="rnot" placeholder="Interne Notizen…">'+h(fd.notizen||'')+'</textarea>')+
     '</div>'+
     '<div class="btn-row"><button class="btn-p" id="rfsv">Speichern</button><button class="btn-g" id="rfca">Abbrechen</button>'+(id?'<button class="btn-d" id="rfde">🗑</button>':'')+'</div>';
@@ -557,22 +544,12 @@ function rRepForm(id){
     var f=this.files[0];if(!f)return;this.value='';toast('⏳ Foto hochladen…');
     compress(f,function(d){upload(d,'r').then(function(url){fd.fotos.push(url);rRenFotos();document.querySelector('#rfw .apb').onclick=function(){document.getElementById('rfi').click()};toast('✓ Foto gespeichert')})});
   };
-  // Muster + Unterschrift Setup bei Reparatur
-  setTimeout(function(){
-    var mc=document.getElementById('rmuster-canvas');
-    if(mc){setupMuster(mc,fd.muster||null);document.getElementById('rmuster-clear').onclick=function(){setupMuster(mc,null)}}
-    var sc=document.getElementById('rsig-canvas');
-    if(sc){setupSig(sc);document.getElementById('rsig-clear').onclick=function(){var ctx=sc.getContext('2d');ctx.clearRect(0,0,sc.width,sc.height)}}
-  },100);
+  document.getElementById('rfsv').onclick=function(){
     fd.kundenname=document.getElementById('rkn').value;fd.kundennummer=document.getElementById('rtel').value;
     fd.geraet=document.getElementById('rger').value;fd.problem=document.getElementById('rpro').value;
     fd.status=document.getElementById('rst').value;fd.preis=document.getElementById('rpr').value;
     fd.zugewiesen_an=document.getElementById('rzu').value;    fd.ersatzteile=document.getElementById('rers').value;
     fd.gerätecode=document.getElementById('rcode').value;
-    var mc=document.getElementById('rmuster-canvas');
-    if(mc&&!isMusterLeer(mc))fd.muster=mc.toDataURL('image/png');
-    var sc=document.getElementById('rsig-canvas');
-    if(sc)fd.unterschrift=sc.toDataURL('image/png');
     fd.notizen=document.getElementById('rnot').value;
     if(!fd.kundenname||!fd.geraet||!fd.problem){toast('⚠ Pflichtfelder ausfüllen!');return}
     fd.erstellt_von=user.id;fd.aktualisiert_am=new Date().toISOString();
