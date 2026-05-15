@@ -187,6 +187,13 @@ textarea.fi{resize:vertical;min-height:70px}
 <body>
 <div id="app"></div>
 <div class="toast" id="toast"></div>
+<div id="pa" style="display:none"></div>
+<style>
+@media print{
+  body>*{display:none!important}
+  #pa{display:block!important;margin:0;padding:0}
+}
+</style>
 <script>
 // ══ CONFIG ══════════════════════════════════════════════════
 var SB='https://sqndtizvtbhxrxbjyypy.supabase.co';
@@ -391,6 +398,7 @@ function rGerForm(id){
       fg('ANKAUFDATUM','<input class="fi" type="date" id="fad" value="'+(fd.ankaufdatum||'')+'">')+
       fg('STATUS','<select class="fi" id="fst"><option'+((fd.status||'Auf Lager')==='Auf Lager'?' selected':'')+'>Auf Lager</option><option'+(fd.status==='Verkauft'?' selected':'')+'>Verkauft</option></select>')+
       fgw('IMEI','<input class="fi" id="fi" value="'+h(fd.imei||'')+'" placeholder="15-stellige IMEI" inputmode="numeric">')+
+      fgw('GERÄTECODE (PIN/Muster/Passwort)','<input class="fi" id="fcode" value="'+h(fd.gerätecode||'')+'" placeholder="z.B. 1234 oder Muster">')+
       fgw('NOTIZEN','<textarea class="fi" id="fn" placeholder="Mängel, Zubehör…">'+h(fd.notizen||'')+'</textarea>')+
     '</div>'+
     '<div class="btn-row"><button class="btn-p" id="fsv">Speichern</button><button class="btn-g" id="fca">Abbrechen</button>'+(id?'<button class="btn-d" id="fde">🗑</button>':'')+'</div>';
@@ -443,11 +451,15 @@ function rGerDetail(id){
       '</div>'+(g.notizen?'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><div class="dk" style="margin-bottom:5px">NOTIZEN</div><div style="font-size:12px;color:var(--text2);line-height:1.6">'+h(g.notizen)+'</div></div>':'')+'</div>'+
       '<div class="btn-row">'+
         (g.status==='Auf Lager'?'<button class="btn-s" id="bvk">✓ Als verkauft</button>':'')+
-        '<button class="btn-g" id="bed" style="flex:1">✏ Bearbeiten</button>'+
+        '<button class="btn-g" id="bdr" style="color:#7ab929;border-color:#7ab92944">🏷 Etikett</button>'+
+        '<button class="btn-g" id="bqu" style="color:#7ab929;border-color:#7ab92944">📋 Quittung</button>'+
+        '<button class="btn-g" id="bed" style="flex:1">✏</button>'+
         '<button class="btn-d" id="bde">🗑</button>'+
       '</div>';
     document.getElementById('bed').onclick=function(){rGerForm(id)};
     document.getElementById('bde').onclick=function(){if(!confirm('Löschen?'))return;del('geraete',id).then(function(){log('Gerät gelöscht',g.marke+' '+g.modell);toast('🗑 Gelöscht');goTab('ger')})};
+    document.getElementById('bdr').onclick=function(){druckEtikett(g)};
+    document.getElementById('bqu').onclick=function(){rUnterschrift(g)};
     var bvk=document.getElementById('bvk');
     if(bvk)bvk.onclick=function(){
       var p=prompt('Verkaufspreis für '+g.marke+' '+g.modell+'?');if(p===null)return;
@@ -557,11 +569,13 @@ function rRepDetail(id){
       '</div>'+(r.notizen?'<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><div class="dk" style="margin-bottom:5px">NOTIZEN</div><div style="font-size:12px;color:var(--text2);line-height:1.6">'+h(r.notizen)+'</div></div>':'')+'</div>'+
       '<div class="btn-row">'+
         (r.status!=='Abgeschlossen'?'<button class="btn-s" id="rab">✓ Abschließen</button>':'')+
+        '<button class="btn-g" id="rkz" style="color:#7ab929;border-color:#7ab92944">🧾 Kundenzettel</button>'+
         '<button class="btn-g" id="red" style="flex:1">✏ Bearbeiten</button>'+
         '<button class="btn-d" id="rde">🗑</button>'+
       '</div>';
     document.getElementById('red').onclick=function(){rRepForm(id)};
     document.getElementById('rde').onclick=function(){if(!confirm('Löschen?'))return;del('reparaturen',id).then(function(){log('Reparatur gelöscht',r.kundenname);toast('🗑 Gelöscht');goTab('rep')})};
+    document.getElementById('rkz').onclick=function(){druckKundenzettel(r)};
     var rab=document.getElementById('rab');
     if(rab)rab.onclick=function(){
       var p=prompt('Preis für '+r.kundenname+'?');if(p===null)return;
@@ -743,7 +757,103 @@ function rKiAbgleich(el){
   };
 }
 
-// ══ PROTOKOLL ════════════════════════════════════════════════
+// ══ ETIKETTEN DRUCK (Gerät) ══════════════════════════════════
+function druckEtikett(g){
+  var preis=g.verkaufpreis||g.ankaufpreis||'';
+  var qrText='handymaxx|'+g.marke+'|'+g.modell+'|'+g.speicher+'|'+g.zustand+'|EK:'+g.ankaufpreis+'EUR|VK:'+(g.verkaufpreis||'')+'EUR|IMEI:'+(g.imei||'')+'|ID:'+g.id;
+  var qrUrl=QR.dataUrl(qrText,5);
+  var pa=document.getElementById('pa');
+  pa.innerHTML=
+    '<div style="width:62mm;padding:5mm;background:#fff;color:#000;font-family:Arial,sans-serif;border:1px solid #ccc;page-break-after:always">'+
+      '<div style="display:flex;align-items:center;gap:4mm;margin-bottom:3mm">'+
+        '<div style="font-size:14pt;font-weight:900;color:#7ab929">handy</div>'+
+        '<div style="font-size:14pt;font-weight:900;color:#000">maxx</div>'+
+      '</div>'+
+      '<div style="font-size:11pt;font-weight:700;margin-bottom:1mm">'+h(g.marke)+' '+h(g.modell)+'</div>'+
+      '<div style="font-size:8pt;color:#444;margin-bottom:2mm">'+h(g.speicher)+' · '+h(g.zustand)+'</div>'+
+      '<div style="font-size:22pt;font-weight:900;color:#000;margin-bottom:3mm">'+preis+' €</div>'+
+      '<div style="display:flex;justify-content:center;margin-bottom:2mm">'+
+        '<img src="'+qrUrl+'" width="130" height="130">'+
+      '</div>'+
+      (g.imei?'<div style="font-size:7pt;color:#888;text-align:center">IMEI: '+h(g.imei)+'</div>':'')+
+    '</div>';
+  window.print();
+}
+
+// ══ KUNDEN-ZETTEL DRUCK (Reparatur) ══════════════════════════
+function druckKundenzettel(r){
+  var url=window.location.href.split('?')[0]+'?rep='+r.id;
+  var qrUrl=QR.dataUrl(url,4);
+  var datum=new Date().toLocaleDateString('de-DE');
+  var pa=document.getElementById('pa');
+  pa.innerHTML=
+    '<div style="width:80mm;padding:6mm;background:#fff;color:#000;font-family:Arial,sans-serif;border:1px solid #ddd">'+
+      '<div style="display:flex;align-items:center;gap:4mm;margin-bottom:2mm">'+
+        '<div style="font-size:16pt;font-weight:900;color:#7ab929">handy</div>'+
+        '<div style="font-size:16pt;font-weight:900;color:#000">maxx</div>'+
+      '</div>'+
+      '<div style="font-size:8pt;color:#888;margin-bottom:4mm">Reparaturauftrag · '+datum+'</div>'+
+      '<div style="border-top:2px solid #7ab929;padding-top:3mm;margin-bottom:3mm">'+
+        '<div style="font-size:9pt;margin-bottom:1mm"><strong>Kunde:</strong> '+h(r.kundenname)+'</div>'+
+        (r.kundennummer?'<div style="font-size:9pt;margin-bottom:1mm"><strong>Tel:</strong> '+h(r.kundennummer)+'</div>':'')+
+        '<div style="font-size:9pt;margin-bottom:1mm"><strong>Gerät:</strong> '+h(r.geraet)+'</div>'+
+        '<div style="font-size:9pt;margin-bottom:1mm"><strong>Problem:</strong> '+h(r.problem)+'</div>'+
+        (r.preis?'<div style="font-size:11pt;font-weight:700;margin-top:2mm">Preis: '+h(String(r.preis))+' €</div>':'')+
+      '</div>'+
+      '<div style="background:#f5f5f5;padding:3mm;border-radius:2mm;margin-bottom:3mm">'+
+        '<div style="font-size:8pt;font-weight:700;margin-bottom:1mm">📱 Status online verfolgen:</div>'+
+        '<div style="display:flex;justify-content:center;margin-bottom:2mm">'+
+          '<img src="'+qrUrl+'" width="120" height="120">'+
+        '</div>'+
+        '<div style="font-size:7pt;color:#666;text-align:center">QR-Code scannen für aktuellen Status</div>'+
+      '</div>'+
+      '<div style="font-size:7pt;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:2mm">handymaxx.at · Professionelle Reparaturen seit 2009</div>'+
+    '</div>';
+  window.print();
+}
+
+// ══ REPARATUR STATUS SEITE (für Kunden-QR-Link) ══════════════
+function checkRepUrl(){
+  var params=new URLSearchParams(window.location.search);
+  var repId=params.get('rep');
+  if(!repId)return false;
+  var app=document.getElementById('app');
+  app.innerHTML='<div style="min-height:100vh;background:#1a1a1a;padding:24px;display:flex;flex-direction:column;align-items:center;gap:20px">'+
+    '<div style="display:flex;align-items:center;gap:10px">'+
+      '<div style="width:44px;height:44px;background:#7ab929;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:22px">📱</div>'+
+      '<div style="font-size:22px;font-weight:900"><span style="color:#7ab929">handy</span>maxx</div>'+
+    '</div>'+
+    '<div id="rep-status" style="width:100%;max-width:400px"><div class="load">● LADEN</div></div>'+
+  '</div>';
+  get('reparaturen','?id=eq.'+repId).then(function(data){
+    var r=data&&data[0];
+    var el=document.getElementById('rep-status');
+    if(!r){el.innerHTML='<div style="color:#f87171;text-align:center">Reparatur nicht gefunden.</div>';return}
+    var TC2={Ausstehend:{c:'#f59e0b',ico:'⏳'},
+              'In Arbeit':{c:'#60a5fa',ico:'🔧'},
+              'Warten auf Teile':{c:'#f87171',ico:'📦'},
+              Bereit:{c:'#7ab929',ico:'✅'},
+              Abgeschlossen:{c:'#4ade80',ico:'🎉'}};
+    var st=TC2[r.status]||{c:'#aaa',ico:'❓'};
+    el.innerHTML=
+      '<div style="background:#242424;border:1px solid #383838;border-radius:16px;padding:20px">'+
+        '<div style="font-size:10px;color:#666;letter-spacing:.1em;margin-bottom:8px">REPARATURSTATUS</div>'+
+        '<div style="font-size:20px;font-weight:800;margin-bottom:4px">'+h(r.kundenname)+'</div>'+
+        '<div style="font-size:14px;color:#aaa;margin-bottom:20px">'+h(r.geraet)+'</div>'+
+        '<div style="display:flex;align-items:center;gap:12px;background:#1a1a1a;border-radius:12px;padding:16px;margin-bottom:16px">'+
+          '<div style="font-size:36px">'+st.ico+'</div>'+
+          '<div><div style="font-size:18px;font-weight:800;color:'+st.c+'">'+r.status+'</div>'+
+          '<div style="font-size:11px;color:#666;margin-top:2px">Aktueller Status</div></div>'+
+        '</div>'+
+        (r.preis?'<div style="background:#7ab92922;border:1px solid #7ab92944;border-radius:10px;padding:14px;text-align:center"><div style="font-size:10px;color:#7ab929;margin-bottom:4px">PREIS</div><div style="font-size:24px;font-weight:900;color:#7ab929">'+r.preis+' €</div></div>':'')+
+        '<div style="font-size:11px;color:#555;text-align:center;margin-top:16px">handymaxx.at · Professionelle Reparaturen seit 2009</div>'+
+      '</div>';
+  });
+  return true;
+}
+
+// ══ PRINT AREA ════════════════════════════════════════════════
+
 function rLog(el){
   var m=mm();
   el.innerHTML='<div class="sect-title">AKTIVITÄTSPROTOKOLL</div>'+
@@ -852,7 +962,7 @@ function rPin(){
         if(pin===luser.pin){
           user={id:luser.id,name:luser.name,rolle:luser.rolle};
           sessionStorage.setItem('hm',JSON.stringify(user));
-          lstep='sel';pin='';luser=null;render();
+          lstep='sel';pin='';luser=null;if(!checkRepUrl())render();
         } else {
           var e=document.getElementById('perr');if(e)e.textContent='Falscher PIN!';
           pin='';setTimeout(function(){var e=document.getElementById('perr');if(e)e.textContent=''},1500);
