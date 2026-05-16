@@ -325,7 +325,16 @@ function goTab(t){
     else if(t==='rep')rRep(mc);
     else if(t==='log')rLog(mc);
     else if(t==='set')rSet(mc);
-    else if(t==='buch')rBuch(mc);
+    else if(t==='buch'){
+    // Nur Admin und Buchhalter
+    if(user.rolle!=='admin'&&user.rolle!=='buchhalter'){
+      mc.innerHTML='<div class="empty"><div class="empty-icon">🔒</div><div class="empty-txt">Kein Zugriff</div></div>';
+      return;
+    }
+    get('buchhaltung','?order=erstellt_am.desc').then(function(r){
+      AB=r||[];mc.className='content fade';rBuch(mc);
+    });
+  }
   });
 }
 
